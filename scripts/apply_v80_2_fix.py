@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Apply V80.2 real-fix layer to TITAN source (self-contained)."""
 from pathlib import Path
-import base64, gzip
 root = Path(__file__).resolve().parents[1]
 src = root / "TITAN_PRO_V80_NNN_UNIFIED.py"
+parts = sorted((root / "patches").glob("v80_2_min_*.py"))
+layer = "".join(p.read_text(encoding="utf-8") for p in parts) if parts else ""
 text = src.read_text(encoding="utf-8")
 marker = "# ===== LAYER: flat/v80_2_real_fix ====="
 if marker in text:
@@ -22,7 +22,7 @@ for a, b in [
 ]:
     if a in text:
         text = text.replace(a, b, 1)
-_B64 = "".join(p.read_text(encoding="ascii").strip() for p in sorted((root / "patches").glob("v80_2_gz_*.b64")))
-layer = gzip.decompress(base64.b64decode(_B64)).decode("utf-8")
-src.write_text(text.rstrip() + "\n\n" + layer.lstrip() + "\n", encoding="utf-8")
-print("applied V80.2", src.stat().st_size)
+if layer.strip():
+    text = text.rstrip() + "\n\n" + layer.lstrip() + "\n"
+src.write_text(text, encoding="utf-8")
+print("applied V80.2", src.stat().st_size, "layer_parts", len(parts))
