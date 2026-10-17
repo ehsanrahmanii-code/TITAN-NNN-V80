@@ -1,4 +1,4 @@
-"""Start TITAN PRO V80 Flask server inside Chaquopy (Android)."""
+"""Start TITAN PRO V80.2 Flask server inside Chaquopy (Android)."""
 from __future__ import annotations
 
 import os
@@ -28,22 +28,17 @@ def _log(msg: str) -> None:
 
 
 def _prepare_home() -> Path:
-    """App-private NNN first (always writable), then shared storage."""
+    """Prefer user-visible Internal Storage/NNN; fall back to app-private."""
     candidates = [
+        Path("/storage/emulated/0/NNN"),
+        Path("/sdcard/NNN"),
+        Path("/storage/self/primary/NNN"),
         Path("/data/data/org.titannnn.titan/files/NNN"),
     ]
     for key in ("HOME", "ANDROID_PRIVATE", "TMPDIR"):
         v = (os.environ.get(key) or "").strip()
         if v:
             candidates.append(Path(v) / "NNN")
-    candidates.extend(
-        [
-            Path("/storage/emulated/0/NNN"),
-            Path("/sdcard/NNN"),
-            Path("/storage/self/primary/NNN"),
-            Path.home() / "NNN",
-        ]
-    )
     for c in candidates:
         try:
             c.mkdir(parents=True, exist_ok=True)
@@ -99,6 +94,13 @@ def _run_titan_server() -> None:
             _log("live_engine ok")
     except Exception as e:
         _log(f"live_engine skip: {e}")
+
+    try:
+        if hasattr(titan, "_background_market_refresh"):
+            titan._background_market_refresh(True)
+            _log("boot scan queued")
+    except Exception as e:
+        _log(f"boot scan: {e}")
 
     app = getattr(titan, "app", None)
     if app is None:
