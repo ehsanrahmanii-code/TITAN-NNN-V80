@@ -1,0 +1,5 @@
+Put the full file TITAN_PRO_V80_NNN_UNIFIED.py (V80.1.2 flat NNN build, ~2MB) at the repository root.
+
+The GitHub Actions workflow copies it into app/src/main/python/ before building the APK.
+
+You can upload via GitHub web UI: Add file → Upload files.
