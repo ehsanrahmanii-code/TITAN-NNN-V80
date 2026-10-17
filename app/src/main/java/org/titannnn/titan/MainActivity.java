@@ -12,6 +12,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -35,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String DASHBOARD_URL = "http://127.0.0.1:8080/";
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int loadAttempts = 0;
+    private boolean pageOk = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,13 +62,32 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
+                pageOk = true;
                 injectNotificationBridge();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request != null && request.isForMainFrame()) {
+                    pageOk = false;
+                }
             }
         });
         webView.addJavascriptInterface(new NotifyBridge(), "TitanNative");
 
+        showBootHtml("در حال روشن شدن موتور TITAN…\nلطفاً ۳۰ تا ۹۰ ثانیه صبر کنید.");
         startPythonServer();
         scheduleLoad();
+    }
+
+    private void showBootHtml(String msg) {
+        String html = "<!DOCTYPE html><html lang='fa' dir='rtl'><head><meta charset='utf-8'>"
+                + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                + "<style>body{font-family:sans-serif;background:#0b0f1a;color:#e8ecff;padding:28px;line-height:1.8}"
+                + ".c{background:#141a2e;border-radius:16px;padding:20px;max-width:520px;margin:40px auto}</style></head>"
+                + "<body><div class='c'><h3>Titan NNN</h3><pre style='white-space:pre-wrap'>" + msg
+                + "</pre></div></body></html>";
+        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
     }
 
     private void createNotificationChannel() {
@@ -159,25 +181,32 @@ public class MainActivity extends AppCompatActivity {
                 Python py = Python.getInstance();
                 PyObject mod = py.getModule("android_main");
                 mod.callAttr("start_server");
+                handler.post(() -> Toast.makeText(MainActivity.this, "موتور شروع شد", Toast.LENGTH_SHORT).show());
             } catch (Exception e) {
                 e.printStackTrace();
-                handler.post(() ->
-                        Toast.makeText(MainActivity.this,
-                                "Server error: " + e.getMessage(),
-                                Toast.LENGTH_LONG).show());
+                final String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                handler.post(() -> {
+                    Toast.makeText(MainActivity.this, "Server error: " + msg, Toast.LENGTH_LONG).show();
+                    showBootHtml("خطای پایتون:\n" + msg + "\n\nاپ را ببندید و دوباره باز کنید.");
+                });
             }
         }, "titan-python").start();
     }
 
     private void scheduleLoad() {
-        handler.postDelayed(this::tryLoad, 3000);
+        // First attempt after 5s; keep trying up to ~2 minutes (import can be slow)
+        handler.postDelayed(this::tryLoad, 5000);
     }
 
     private void tryLoad() {
         loadAttempts++;
-        webView.loadUrl(DASHBOARD_URL);
-        if (loadAttempts < 15) {
-            handler.postDelayed(this::tryLoad, 2000);
+        if (!pageOk || loadAttempts <= 3) {
+            webView.loadUrl(DASHBOARD_URL);
+        }
+        if (loadAttempts < 40) {
+            handler.postDelayed(this::tryLoad, 3000);
+        } else if (!pageOk) {
+            showBootHtml("سرور بعد از ۲ دقیقه پاسخ نداد.\nلاگ: files/NNN/titan_boot.log\nاپ را یک‌بار Force Stop کنید و دوباره باز کنید.");
         }
     }
 
