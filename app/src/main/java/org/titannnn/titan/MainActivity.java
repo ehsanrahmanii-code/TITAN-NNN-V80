@@ -6,10 +6,13 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -43,10 +46,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         createNotificationChannel();
         requestAllPermissions();
-
         webView = findViewById(R.id.webview);
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -65,17 +66,13 @@ public class MainActivity extends AppCompatActivity {
                 pageOk = true;
                 injectNotificationBridge();
             }
-
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request != null && request.isForMainFrame()) {
-                    pageOk = false;
-                }
+                if (request != null && request.isForMainFrame()) pageOk = false;
             }
         });
         webView.addJavascriptInterface(new NotifyBridge(), "TitanNative");
-
-        showBootHtml("در حال روشن شدن موتور TITAN…\nلطفاً ۳۰ تا ۹۰ ثانیه صبر کنید.");
+        showBootHtml("در حال روشن شدن موتور TITAN V80.2…\n۳۰–۹۰ ثانیه صبر کنید.\nمجوز دسترسی به همه فایل‌ها را تأیید کنید تا پوشه NNN ساخته شود.");
         startPythonServer();
         scheduleLoad();
     }
@@ -85,19 +82,15 @@ public class MainActivity extends AppCompatActivity {
                 + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
                 + "<style>body{font-family:sans-serif;background:#0b0f1a;color:#e8ecff;padding:28px;line-height:1.8}"
                 + ".c{background:#141a2e;border-radius:16px;padding:20px;max-width:520px;margin:40px auto}</style></head>"
-                + "<body><div class='c'><h3>Titan NNN</h3><pre style='white-space:pre-wrap'>" + msg
+                + "<body><div class='c'><h3>Titan NNN V80.2</h3><pre style='white-space:pre-wrap'>" + msg
                 + "</pre></div></body></html>";
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Titan NNN Alerts",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            channel.setDescription("سیگنال و هشدارهای Titan NNN");
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Titan NNN Alerts", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("سیگنال Titan NNN");
             channel.enableVibration(true);
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
@@ -107,37 +100,39 @@ public class MainActivity extends AppCompatActivity {
     private void requestAllPermissions() {
         java.util.ArrayList<String> list = new java.util.ArrayList<>();
         if (Build.VERSION.SDK_INT >= 23) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 list.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
                 list.add(Manifest.permission.READ_EXTERNAL_STORAGE);
             }
         }
         if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 list.add(Manifest.permission.POST_NOTIFICATIONS);
             }
         }
         if (!list.isEmpty()) {
             ActivityCompat.requestPermissions(this, list.toArray(new String[0]), REQ_PERMS);
         }
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                if (!Environment.isExternalStorageManager()) {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }
+            } catch (Exception e) {
+                try {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void injectNotificationBridge() {
         if (webView == null) return;
-        String js =
-                "(function(){\"use strict\";" +
-                "if(window.__titanNativeNotify)return;window.__titanNativeNotify=1;" +
-                "function show(title,body){try{if(window.TitanNative)TitanNative.notify(String(title||'Titan NNN'),String(body||''));}catch(e){}}" +
-                "try{" +
-                "  function N(title,opts){opts=opts||{};show(title,opts.body||'');this.title=title;this.body=opts.body||'';this.onclick=null;}" +
-                "  N.permission='granted';" +
-                "  N.requestPermission=function(){return Promise.resolve('granted');};" +
-                "  N.prototype.close=function(){};" +
-                "  window.Notification=N;" +
-                "}catch(e){}" +
-                "})();";
+        String js = "(function(){if(window.__titanNativeNotify)return;window.__titanNativeNotify=1;"
+                + "function show(t,b){try{if(window.TitanNative)TitanNative.notify(String(t||'Titan'),String(b||''));}catch(e){}}"
+                + "try{function N(t,o){o=o||{};show(t,o.body||'');}N.permission='granted';N.requestPermission=function(){return Promise.resolve('granted');};window.Notification=N;}catch(e){}})();";
         webView.evaluateJavascript(js, null);
     }
 
@@ -150,17 +145,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void postNotification(String title, String body) {
         if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                return;
-            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
         }
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pi = PendingIntent.getActivity(
-                this, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+        PendingIntent pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(title != null ? title : "Titan NNN")
@@ -175,39 +164,27 @@ public class MainActivity extends AppCompatActivity {
     private void startPythonServer() {
         new Thread(() -> {
             try {
-                if (!Python.isStarted()) {
-                    Python.start(new AndroidPlatform(getApplicationContext()));
-                }
-                Python py = Python.getInstance();
-                PyObject mod = py.getModule("android_main");
-                mod.callAttr("start_server");
-                handler.post(() -> Toast.makeText(MainActivity.this, "موتور شروع شد", Toast.LENGTH_SHORT).show());
+                if (!Python.isStarted()) Python.start(new AndroidPlatform(getApplicationContext()));
+                Python.getInstance().getModule("android_main").callAttr("start_server");
+                handler.post(() -> Toast.makeText(MainActivity.this, "موتور V80.2 شروع شد", Toast.LENGTH_SHORT).show());
             } catch (Exception e) {
                 e.printStackTrace();
                 final String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 handler.post(() -> {
                     Toast.makeText(MainActivity.this, "Server error: " + msg, Toast.LENGTH_LONG).show();
-                    showBootHtml("خطای پایتون:\n" + msg + "\n\nاپ را ببندید و دوباره باز کنید.");
+                    showBootHtml("خطای پایتون:\n" + msg);
                 });
             }
         }, "titan-python").start();
     }
 
-    private void scheduleLoad() {
-        // First attempt after 5s; keep trying up to ~2 minutes (import can be slow)
-        handler.postDelayed(this::tryLoad, 5000);
-    }
+    private void scheduleLoad() { handler.postDelayed(this::tryLoad, 5000); }
 
     private void tryLoad() {
         loadAttempts++;
-        if (!pageOk || loadAttempts <= 3) {
-            webView.loadUrl(DASHBOARD_URL);
-        }
-        if (loadAttempts < 40) {
-            handler.postDelayed(this::tryLoad, 3000);
-        } else if (!pageOk) {
-            showBootHtml("سرور بعد از ۲ دقیقه پاسخ نداد.\nلاگ: files/NNN/titan_boot.log\nاپ را یک‌بار Force Stop کنید و دوباره باز کنید.");
-        }
+        if (!pageOk || loadAttempts <= 3) webView.loadUrl(DASHBOARD_URL);
+        if (loadAttempts < 40) handler.postDelayed(this::tryLoad, 3000);
+        else if (!pageOk) showBootHtml("سرور پاسخ نداد. Force Stop کنید و دوباره باز کنید.\nپوشه NNN را در حافظه داخلی بررسی کنید.");
     }
 
     @Override
@@ -217,10 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        if (webView != null && webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
     }
 }
