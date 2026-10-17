@@ -1,5 +1,9 @@
-Put the full file TITAN_PRO_V80_NNN_UNIFIED.py (V80.1.2 flat NNN build, ~2MB) at the repository root.
+ERROR FIX:
 
-The GitHub Actions workflow copies it into app/src/main/python/ before building the APK.
+1) Upload file named exactly:
+   TITAN_PRO_V80_NNN_UNIFIED.py
+to the ROOT of this repository (not inside a folder).
 
-You can upload via GitHub web UI: Add file → Upload files.
+2) Then: Actions → Build Titan NNN V80 APK → Run workflow
+
+The previous failure was only because this ~2MB engine file was missing.
