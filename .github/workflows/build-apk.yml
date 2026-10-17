@@ -3,6 +3,9 @@ name: Build Titan NNN V80 APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK (Chaquopy + full libs)
@@ -67,17 +70,32 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Locate APK
-        if: always()
+      - name: Prepare APK file
+        if: success()
         run: |
-          find app/build/outputs -name "*.apk" -ls || true
-          ls -lah app/build/outputs/apk/debug/ || true
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/Titan-NNN-V80.apk
+          ls -lah dist/
 
-      - name: Upload APK
+      - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Titan-NNN-V80-APK
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+          path: dist/Titan-NNN-V80.apk
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release (stable download)
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v80.1.2-android
+          name: Titan NNN V80 Android APK
+          body: |
+            APK debug build — Titan PRO V80.1.2 NNN
+            Install, open app, wait 30–90s on first launch.
+          files: dist/Titan-NNN-V80.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
