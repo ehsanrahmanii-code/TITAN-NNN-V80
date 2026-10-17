@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace 'org.titannnn.titan'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "org.titannnn.titan"
+        minSdk 26
+        targetSdk 34
+        versionCode 80
+        versionName "80.1.2"
+
+        ndk {
+            // arm64 only = smaller APK + real numpy/pandas wheels from Chaquopy
+            abiFilters "arm64-v8a"
+        }
+
+        python {
+            version "3.11"
+            pip {
+                // All runtime libs baked into the APK (no network install on device)
+                install "numpy"
+                install "pandas"
+                install "flask"
+                install "requests"
+                install "urllib3"
+                install "websocket-client"
+                install "jinja2"
+                install "werkzeug"
+                install "markupsafe"
+                install "itsdangerous"
+                install "click"
+                install "blinker"
+                install "certifi"
+                install "charset-normalizer"
+                install "idna"
+                install "six"
+                install "pytz"
+                install "python-dateutil"
+                install "tzdata"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ["META-INF/LICENSE", "META-INF/LICENSE.txt", "META-INF/NOTICE"]
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
